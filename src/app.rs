@@ -25,42 +25,23 @@ pub struct App {
     pub render: unsafe fn(&Context),
 }
 
-pub fn new_app(title: &str, render: unsafe fn(&Context)) -> App {
-    App {
-        window: None,
-        gl_surface: None,
-        gl_context: None,
-        gl: None,
+impl App {
+    pub fn new(title: &str, render: unsafe fn(&Context)) -> Self {
+        Self {
+            window: None,
+            gl_surface: None,
+            gl_context: None,
+            gl: None,
 
-        title: title.to_string(),
-        render,
+            title: title.to_string(),
+            render,
+        }
     }
-}
 
-pub fn run_app(mut app: App) -> Result<(), EventLoopError> {
-    EventLoop::new()?.run_app(&mut app)?;
-    Ok(())
-}
-
-fn gl_config_picker(configs: Box<dyn Iterator<Item = Config> + '_>) -> Config {
-    configs
-        .reduce(|accum, config| {
-            let transparency_check = config.supports_transparency().unwrap_or(false)
-                & !accum.supports_transparency().unwrap_or(false);
-
-            if transparency_check || config.num_samples() > accum.num_samples() {
-                config
-            } else {
-                accum
-            }
-        })
-        .unwrap()
-}
-
-fn window_attributes(title: String) -> WindowAttributes {
-    Window::default_attributes()
-        .with_transparent(true)
-        .with_title(title)
+    pub fn run_app(mut app: App) -> Result<(), EventLoopError> {
+        EventLoop::new()?.run_app(&mut app)?;
+        Ok(())
+    }
 }
 
 impl ApplicationHandler for App {
@@ -160,4 +141,25 @@ impl ApplicationHandler for App {
             _ => (),
         }
     }
+}
+
+fn gl_config_picker(configs: Box<dyn Iterator<Item = Config> + '_>) -> Config {
+    configs
+        .reduce(|accum, config| {
+            let transparency_check = config.supports_transparency().unwrap_or(false)
+                & !accum.supports_transparency().unwrap_or(false);
+
+            if transparency_check || config.num_samples() > accum.num_samples() {
+                config
+            } else {
+                accum
+            }
+        })
+        .unwrap()
+}
+
+fn window_attributes(title: String) -> WindowAttributes {
+    Window::default_attributes()
+        .with_transparent(true)
+        .with_title(title)
 }
