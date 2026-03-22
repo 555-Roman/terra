@@ -5,14 +5,14 @@ use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowAttributes, WindowId};
 
 struct App {
-    window: Window,
+    window: Option<Window>,
 }
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         println!("Resumed!");
 
-        self.window = event_loop.create_window(WindowAttributes::default()).unwrap();
+        self.window = Some(event_loop.create_window(WindowAttributes::default()).unwrap());
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: WindowId, event: WindowEvent) {
@@ -41,8 +41,9 @@ fn main() {
 
     let event_loop = EventLoop::new().unwrap();
 
-    let window = event_loop.create_window(WindowAttributes::default()).unwrap();
-    let mut app = App{window};
+    let mut app = App {
+        window: None
+    };
 
     event_loop.run_app(&mut app).unwrap();
 }
