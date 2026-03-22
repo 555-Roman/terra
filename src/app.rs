@@ -9,6 +9,7 @@ use glutin::surface::{GlSurface, Surface, SwapInterval, WindowSurface};
 use glutin_winit::{DisplayBuilder, GlWindow};
 use log::error;
 use winit::application::ApplicationHandler;
+use winit::error::EventLoopError;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::raw_window_handle::HasWindowHandle;
@@ -21,7 +22,7 @@ pub struct App {
     pub gl: Option<Context>,
 
     pub title: String,
-    pub render: *const unsafe fn(&Context),
+    pub render: unsafe fn(&Context),
 }
 
 pub fn new_app(title: &str, render: unsafe fn(&Context)) -> App {
@@ -32,12 +33,13 @@ pub fn new_app(title: &str, render: unsafe fn(&Context)) -> App {
         gl: None,
 
         title: title.to_string(),
-        render: render as *const unsafe fn(&Context),
+        render,
     }
 }
 
-pub fn run_app(mut app: App) {
-    let _ = EventLoop::new().unwrap().run_app(&mut app);
+pub fn run_app(mut app: App) -> Result<(), EventLoopError> {
+    EventLoop::new()?.run_app(&mut app)?;
+    Ok(())
 }
 
 fn gl_config_picker(configs: Box<dyn Iterator<Item = Config> + '_>) -> Config {
@@ -148,7 +150,7 @@ impl ApplicationHandler for App {
                 let gl = self.gl.as_ref().unwrap();
 
                 unsafe {
-                    let render = std::mem::transmute::<*const unsafe fn(&Context), unsafe fn(&Context)>(self.render);
+                    let render = self.render;
                     render(gl);
                 }
 

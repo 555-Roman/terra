@@ -1,9 +1,10 @@
 mod app;
 
 use glow::{Context, HasContext, COLOR_BUFFER_BIT};
+use log::error;
 use crate::app::new_app;
 
-unsafe fn my_render(gl: &Context) {unsafe{
+unsafe fn my_render(gl: &Context) { unsafe {
     gl.clear_color(0.0, 1.0, 1.0, 1.0);
     gl.clear(COLOR_BUFFER_BIT);
 }}
@@ -13,5 +14,7 @@ fn main() {
 
     let app = new_app("ee", my_render);
 
-    app::run_app(app);
+    app::run_app(app).unwrap_or_else(|err| {
+        error!("Failed to run app!: {:?}", err);
+    });
 }
