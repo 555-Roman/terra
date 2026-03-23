@@ -22,11 +22,12 @@ pub struct App {
     pub gl: Option<Context>,
 
     pub title: String,
+    pub init: unsafe fn(&Context),
     pub render: unsafe fn(&Context),
 }
 
 impl App {
-    pub fn new(title: &str, render: unsafe fn(&Context)) -> Self {
+    pub fn new(title: &str, init: unsafe fn(&Context), render: unsafe fn(&Context)) -> Self {
         Self {
             window: None,
             gl_surface: None,
@@ -34,6 +35,7 @@ impl App {
             gl: None,
 
             title: title.to_string(),
+            init,
             render,
         }
     }
@@ -94,6 +96,10 @@ impl ApplicationHandler for App {
             self.gl_surface = Some(gl_surface);
             self.gl_context = Some(gl_context);
             self.gl = Some(gl);
+
+            let gl = self.gl.as_ref().unwrap();
+            let init = self.init;
+            init(gl);
         }
 
         self.window = Some(window);
