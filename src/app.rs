@@ -14,29 +14,22 @@ use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::raw_window_handle::HasWindowHandle;
 use winit::window::{Window, WindowAttributes, WindowId};
+use crate::renderer::Renderer;
 
 pub struct App {
     pub window: Option<Window>,
-    pub gl_surface: Option<Surface<WindowSurface>>,
-    pub gl_context: Option<PossiblyCurrentContext>,
-    pub gl: Option<Context>,
+    pub renderer: Option<Renderer>,
 
     pub title: String,
-    pub init: unsafe fn(&Context),
-    pub render: unsafe fn(&Context),
 }
 
 impl App {
-    pub fn new(title: &str, init: unsafe fn(&Context), render: unsafe fn(&Context)) -> Self {
+    pub fn new(title: &str) -> Self {
         Self {
             window: None,
-            gl_surface: None,
-            gl_context: None,
-            gl: None,
+            renderer: None,
 
             title: title.to_string(),
-            init,
-            render,
         }
     }
 
@@ -63,45 +56,7 @@ impl ApplicationHandler for App {
             },
         };
 
-        let raw_window_handle = window.window_handle().unwrap_or_else(|err| {
-            error!("why tf did that not work?? {:?}", err);
-            abort()
-        }).as_raw();
-
-        let context_attributes = ContextAttributesBuilder::new().build(Some(raw_window_handle));
-        let gl_display = gl_config.display();
-
-        unsafe {
-            let gl_context = gl_display.create_context(&gl_config, &context_attributes).unwrap_or_else(|_| {
-                error!("ur device is too old noob, skill issue");
-                abort()
-            }).treat_as_possibly_current();
-
-            let attrs = window
-                .build_surface_attributes(Default::default())
-                .unwrap_or_else(|_| {
-                    error!("ur hardware dont work or smth prob too old skill issue");
-                    abort()
-                });
-            let gl_surface = gl_config.display().create_window_surface(&gl_config, &attrs).unwrap();
-
-            gl_context.make_current(&gl_surface).unwrap();
-
-            let gl = Context::from_loader_function_cstr(|s| gl_display.get_proc_address(s));
-
-            gl_surface
-                .set_swap_interval(&gl_context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
-                .unwrap();
-
-            self.gl_surface = Some(gl_surface);
-            self.gl_context = Some(gl_context);
-            self.gl = Some(gl);
-
-            let gl = self.gl.as_ref().unwrap();
-            let init = self.init;
-            init(gl);
-        }
-
+        self.renderer = unsafe { Some(Renderer::new(&gl_config, &window)) };
         self.window = Some(window);
     }
 
@@ -122,27 +77,16 @@ impl ApplicationHandler for App {
                 }
             },
             WindowEvent::Resized(size) if size.width != 0 && size.height != 0 => {
-                let width = unsafe { NonZeroU32::new_unchecked(size.width) };
-                let height = unsafe { NonZeroU32::new_unchecked(size.height) };
-
-                let context = self.gl_context.as_ref().unwrap();
-                let surface = self.gl_surface.as_ref().unwrap();
-
-                surface.resize(context, width, height);
+                let renderer = self.renderer.as_ref().unwrap();
+                renderer.resize(size);
             },
             WindowEvent::RedrawRequested => {
+                let renderer = self.renderer.as_ref().unwrap();
                 let window = self.window.as_ref().unwrap();
-                let context = self.gl_context.as_ref().unwrap();
-                let surface = self.gl_surface.as_ref().unwrap();
-                let gl = self.gl.as_ref().unwrap();
-
                 unsafe {
-                    let render = self.render;
-                    render(gl);
+                    renderer.render();
                 }
-
                 window.request_redraw();
-                surface.swap_buffers(context).unwrap();
             },
             _ => (),
         }
