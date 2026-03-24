@@ -3,7 +3,7 @@ mod renderer;
 mod quad;
 
 use glow::{HasContext, NativeProgram};
-use log::error;
+use log::{debug, error, info};
 use crate::app::{App, Rendering};
 use crate::quad::Quad;
 use crate::renderer::Renderer;
@@ -45,8 +45,7 @@ impl Rendering for Terra {
             gl.clear_color(0.0, 1.0, 1.0, 1.0);
             gl.clear(glow::COLOR_BUFFER_BIT);
 
-            gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.quad.as_ref().unwrap().vbo));
-            // anyways not rendering
+            gl.bind_vertex_array(Some(self.quad.as_ref().unwrap().vao));
             gl.use_program(self.quad_program);
             gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_INT, 0);
 

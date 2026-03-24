@@ -20,8 +20,6 @@ pub struct Renderer {
     pub context: PossiblyCurrentContext,
     pub gl: Rc<Context>,
 
-    vao: NativeVertexArray,
-    ebo: NativeBuffer,
     vertex_shader: NativeShader,
 }
 
@@ -29,8 +27,6 @@ impl Drop for Renderer {
     fn drop(&mut self) {
         unsafe {
             self.gl.delete_shader(self.vertex_shader);
-            self.gl.delete_vertex_array(self.vao);
-            self.gl.delete_buffer(self.ebo);
         }
     }
 }
@@ -76,32 +72,7 @@ void main()\n
             /* - SHADER COMPILATION - */
 
             /* - SETUP VERTEX DATA AND ATTRIBUTES - */
-            vao = match gl.create_vertex_array() {
-                Ok(array) => array,
-                Err(err) => {
-                    error!("Failed to create buffer: {:?}", err);
-                    abort();
-                }
-            };
-            ebo = match gl.create_buffer() {
-                Ok(buffer) => buffer,
-                Err(err) => {
-                    error!("Failed to create buffer: {:?}", err);
-                    abort();
-                }
-            };
 
-            gl.bind_vertex_array(Some(vao));
-
-            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
-            gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, cast_slice(&Self::INDICES), glow::STATIC_DRAW);
-
-            gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 4 * 4, 0);
-            gl.enable_vertex_attrib_array(0);
-            gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, 4 * 4, 2 * 4);
-            gl.enable_vertex_attrib_array(1);
-
-            gl.bind_buffer(glow::ARRAY_BUFFER, None);
             /* - SETUP VERTEX DATA AND ATTRIBUTES - */
         }
 
@@ -110,9 +81,6 @@ void main()\n
             surface,
             context,
             gl: Rc::new(gl),
-
-            vao,
-            ebo,
             vertex_shader,
         }
     }
