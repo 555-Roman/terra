@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 use std::process::abort;
 use std::rc::Rc;
 use bytemuck::cast_slice;
-use glow::{Context, HasContext, NativeBuffer, NativeShader, NativeVertexArray};
+use glow::{Context, HasContext, NativeBuffer, NativeProgram, NativeShader, NativeVertexArray};
 use glutin::config::Config;
 use glutin::context::{ContextAttributesBuilder, PossiblyCurrentContext};
 use glutin::display::GetGlDisplay;
@@ -42,11 +42,13 @@ impl Renderer {
     ];
     pub const VERTEX_SHADER: &str = "
 #version 330 core\n
-layout (location = 0) in vec2 aPos;\n
+layout (location = 0) in vec2 aPos;\n\
+layout (location = 1) in vec2 aTexCoords;\n
 out vec2 texcoords;\n
 void main()\n
 {\n
-   gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);\n
+   gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);\n\
+    texcoords = aTexCoords;\n
 }";
 
     pub unsafe fn new(gl_config: &Config, window: &Window) -> Self {
@@ -57,7 +59,7 @@ void main()\n
         let vertex_shader: NativeShader;
 
         unsafe {
-            /* - SHADER COMPILATION AND PROGRAM LINKING - */
+            /* - SHADER COMPILATION - */
             vertex_shader = match gl.create_shader(glow::VERTEX_SHADER) {
                 Ok(shader) => shader,
                 Err(err) => {
@@ -158,7 +160,43 @@ void main()\n
     }
 
     pub unsafe fn new_quad(&self, x: f32, y: f32, width: f32, height: f32) -> Quad {unsafe{
-        Quad::new(&self.gl, x, y, width, height)
+        let gl = &self.gl;
+        Quad::new(gl, x, y, width, height)
+    }}
+
+    pub unsafe fn new_program(&self, fragment_code: &str) -> NativeProgram {unsafe{
+        let gl = &self.gl;
+        let fragment_shader = match gl.create_shader(glow::FRAGMENT_SHADER) {
+            Ok(shader) => shader,
+            Err(err) => {
+                error!("Failed to create fragment shader: {:?}", err);
+                abort();
+            }
+        };
+        gl.shader_source(fragment_shader, fragment_code);
+        gl.compile_shader(fragment_shader);
+        if !gl.get_shader_compile_status(fragment_shader) {
+            error!("Failed to compile fragment shader: {:?}", gl.get_shader_info_log(fragment_shader));
+            abort();
+        }
+
+        let shader_program = match gl.create_program() {
+            Ok(program) => program,
+            Err(err) => {
+                error!("Failed to create shader program: {:?}", err);
+                abort();
+            }
+        };
+        gl.attach_shader(shader_program, self.vertex_shader);
+        gl.attach_shader(shader_program, fragment_shader);
+        gl.link_program(shader_program);
+        if !gl.get_program_link_status(shader_program) {
+            error!("Failed to link shader: {:?}", gl.get_program_info_log(shader_program));
+            abort();
+        }
+        gl.delete_shader(fragment_shader);
+
+        shader_program
     }}
 
     pub unsafe fn swap_buffers(&self) {

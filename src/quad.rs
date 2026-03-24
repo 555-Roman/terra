@@ -5,7 +5,7 @@ use glow::{Context, HasContext, NativeBuffer};
 use log::error;
 
 pub struct Quad {
-    vbo: NativeBuffer,
+    pub vbo: NativeBuffer,
     gl: Rc<Context>,
 }
 
@@ -36,6 +36,7 @@ impl Quad {
 
         gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
         gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, cast_slice(&vertices), glow::STATIC_DRAW);
+        gl.bind_buffer(glow::ARRAY_BUFFER, None);
 
         Quad {
             vbo,

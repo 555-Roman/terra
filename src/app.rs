@@ -8,24 +8,33 @@ use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowAttributes, WindowId};
 use crate::renderer::Renderer;
 
-pub struct App<'a, T> {
+pub trait Rendering {
+    fn init(&mut self, renderer: &Renderer);
+    fn render(&mut self, renderer: &Renderer);
+    fn drop(&mut self, renderer: &Renderer);
+}
+
+pub struct App<'a, T: Rendering> {
     pub window: Option<Window>,
     pub renderer: Option<Renderer>,
 
     pub title: String,
 
-    custom_render: unsafe fn(&mut T, &Renderer),
     user_app: &'a mut T,
 }
+impl<'a, T: Rendering> Drop for App<'a, T> {
+    fn drop(&mut self) {
+        self.user_app.drop(self.renderer.as_ref().unwrap());
+    }
+}
 
-impl<'a, T> App<'a, T> {
-    pub fn new(title: &str, custom_render: unsafe fn(&mut T, &Renderer), user_app: &'a mut T) -> Self {
+impl<'a, T: Rendering> App<'a, T> {
+    pub fn new(title: &str, user_app: &'a mut T) -> Self {
         Self {
             window: None,
             renderer: None,
 
             title: title.to_string(),
-            custom_render,
             user_app,
         }
     }
@@ -34,13 +43,9 @@ impl<'a, T> App<'a, T> {
         EventLoop::new()?.run_app(&mut app)?;
         Ok(())
     }
-
-    pub fn _renderer(&self) -> &Renderer {
-        self.renderer.as_ref().unwrap()
-    }
 }
 
-impl<'a, T> ApplicationHandler for App<'a, T> {
+impl<'a, T: Rendering> ApplicationHandler for App<'a, T> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let template = ConfigTemplateBuilder::new().with_alpha_size(8).with_transparency(false);
 
@@ -59,6 +64,8 @@ impl<'a, T> ApplicationHandler for App<'a, T> {
 
         self.renderer = unsafe { Some(Renderer::new(&gl_config, &window)) };
         self.window = Some(window);
+
+        self.user_app.init(self.renderer.as_ref().unwrap());
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {
@@ -84,11 +91,8 @@ impl<'a, T> ApplicationHandler for App<'a, T> {
             WindowEvent::RedrawRequested => {
                 let renderer = self.renderer.as_ref().unwrap();
                 let window = self.window.as_ref().unwrap();
-                let func = self.custom_render;
 
-                unsafe {
-                    func(self.user_app, renderer);
-                }
+                self.user_app.render(renderer);
 
                 window.request_redraw();
             },
