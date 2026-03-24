@@ -1,18 +1,10 @@
-use std::num::NonZeroU32;
-use std::process::abort;
-use glow::Context;
 use glutin::config::{Config, ConfigTemplateBuilder};
-use glutin::context::{ContextAttributesBuilder, PossiblyCurrentContext};
-use glutin::display::{GetGlDisplay};
-use glutin::prelude::{GlConfig, GlDisplay, NotCurrentGlContext, PossiblyCurrentGlContext};
-use glutin::surface::{GlSurface, Surface, SwapInterval, WindowSurface};
-use glutin_winit::{DisplayBuilder, GlWindow};
-use log::error;
+use glutin::prelude::GlConfig;
+use glutin_winit::DisplayBuilder;
 use winit::application::ApplicationHandler;
 use winit::error::EventLoopError;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::raw_window_handle::HasWindowHandle;
 use winit::window::{Window, WindowAttributes, WindowId};
 use crate::renderer::Renderer;
 

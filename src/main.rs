@@ -1,9 +1,6 @@
 mod app;
 mod renderer;
 
-use std::process::abort;
-use bytemuck::cast_slice;
-use glow::{Context, HasContext, COLOR_BUFFER_BIT};
 use log::error;
 use crate::app::App;
 

@@ -1,7 +1,7 @@
 use std::num::NonZeroU32;
 use std::process::abort;
 use bytemuck::cast_slice;
-use glow::{Context, HasContext, COLOR_BUFFER_BIT};
+use glow::{Context, HasContext, NativeProgram, NativeVertexArray, COLOR_BUFFER_BIT};
 use glutin::config::Config;
 use glutin::context::{ContextAttributesBuilder, PossiblyCurrentContext};
 use glutin::display::GetGlDisplay;
@@ -17,6 +17,9 @@ pub struct Renderer {
     pub surface: Surface<WindowSurface>,
     pub context: PossiblyCurrentContext,
     pub gl: Context,
+
+    vao: NativeVertexArray,
+    shader_program: NativeProgram,
 }
 
 impl Renderer {
@@ -25,79 +28,113 @@ impl Renderer {
         0.5, -0.5, 0.0,
         0.0,  0.5, 0.0
     ];
+    pub const VERTEX_SHADER: &str = "
+#version 330 core\n
+layout (location = 0) in vec3 aPos;\n
+void main()\n
+{\n
+   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n
+}";
+    pub const FRAGMENT_SHADER: &str = "
+#version 330 core\n
+out vec4 FragColor;\n
+void main()\n
+{\n
+    FragColor = vec4(1.0f, 1.0f, 0.0f, 1.0f);\n
+}";
 
     pub unsafe fn new(gl_config: &Config, window: &Window) -> Self {
         let (surface, context, gl) = Self::init_gl(gl_config, window);
 
-        let vbo = match gl.create_buffer() {
-            Ok(buffer) => buffer,
-            Err(err) => {
-                error!("Failed to create buffer: {:?}", err);
+        let vao: NativeVertexArray;
+        let shader_program: NativeProgram;
+
+        unsafe {
+            /* - SHADER COMPILATION AND PROGRAM LINKING - */
+            let vertex_shader = match gl.create_shader(glow::VERTEX_SHADER) {
+                Ok(shader) => shader,
+                Err(err) => {
+                    error!("Failed to create vertex shader: {:?}", err);
+                    abort();
+                }
+            };
+            gl.shader_source(vertex_shader, Self::VERTEX_SHADER);
+            gl.compile_shader(vertex_shader);
+            if !gl.get_shader_compile_status(vertex_shader) {
+                error!("Failed to compile vertex shader: {:?}", gl.get_shader_info_log(vertex_shader));
                 abort();
             }
-        };
-        gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
-        gl.buffer_data_u8_slice(
-            glow::ARRAY_BUFFER,
-            // std::slice::from_raw_parts(vertices.as_ptr() as *const u8, vertices.len() * 4),
-            cast_slice(&Self::VERTICES),
-            glow::STATIC_DRAW);
 
-        let vertex = "#version 330 core\n
-    layout (location = 0) in vec3 aPos;\n
-    void main()\n
-    {\n
-       gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n
-    }\0";
-
-        let vertex_shader = match gl.create_shader(glow::VERTEX_SHADER) {
-            Ok(shader) => shader,
-            Err(err) => {
-                error!("Failed to create vertex shader: {:?}", err);
+            let fragment_shader = match gl.create_shader(glow::FRAGMENT_SHADER) {
+                Ok(shader) => shader,
+                Err(err) => {
+                    error!("Failed to create fragment shader: {:?}", err);
+                    abort();
+                }
+            };
+            gl.shader_source(fragment_shader, Self::FRAGMENT_SHADER);
+            gl.compile_shader(fragment_shader);
+            if !gl.get_shader_compile_status(fragment_shader) {
+                error!("Failed to compile vertex shader: {:?}", gl.get_shader_info_log(fragment_shader));
                 abort();
             }
-        };
-        gl.shader_source(vertex_shader, vertex);
-        gl.compile_shader(vertex_shader);
 
-        let fragment = "#version 330 core\n
-    out vec4 FragColor;\n
-    void main()\n
-    {\n
-        FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n
-    }\0";
-
-        let fragment_shader = match gl.create_shader(glow::FRAGMENT_SHADER) {
-            Ok(shader) => shader,
-            Err(err) => {
-                error!("Failed to create fragment shader: {:?}", err);
+            shader_program = match gl.create_program() {
+                Ok(program) => program,
+                Err(err) => {
+                    error!("Failed to create shader program: {:?}", err);
+                    abort();
+                }
+            };
+            gl.attach_shader(shader_program, vertex_shader);
+            gl.attach_shader(shader_program, fragment_shader);
+            gl.link_program(shader_program);
+            if !gl.get_program_link_status(shader_program) {
+                error!("Failed to link shader: {:?}", gl.get_program_info_log(shader_program));
                 abort();
             }
-        };
-        gl.shader_source(fragment_shader, fragment);
-        gl.compile_shader(fragment_shader);
+            gl.delete_shader(vertex_shader);
+            gl.delete_shader(fragment_shader);
+            /* - SHADER COMPILATION AND PROGRAM LINKING - */
 
-        let shader_program = match gl.create_program() {
-            Ok(program) => program,
-            Err(err) => {
-                error!("Failed to create shader program: {:?}", err);
-                abort();
-            }
-        };
-        gl.attach_shader(shader_program, vertex_shader);
-        gl.attach_shader(shader_program, fragment_shader);
-        gl.link_program(shader_program);
+            /* - SETUP VERTEX DATA AND ATTRIBUTES - */
+            vao = match gl.create_vertex_array() {
+                Ok(array) => array,
+                Err(err) => {
+                    error!("Failed to create buffer: {:?}", err);
+                    abort();
+                }
+            };
+            let vbo = match gl.create_buffer() {
+                Ok(buffer) => buffer,
+                Err(err) => {
+                    error!("Failed to create buffer: {:?}", err);
+                    abort();
+                }
+            };
 
-        gl.use_program(Some(shader_program));
-        gl.delete_shader(vertex_shader);
-        gl.delete_shader(fragment_shader);
+            gl.bind_vertex_array(Some(vao));
 
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
+            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, cast_slice(&Self::VERTICES), glow::STATIC_DRAW);
+
+            gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, 3*4, 0);
+            gl.enable_vertex_attrib_array(0);
+
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
+
+            gl.bind_vertex_array(None);
+            /* - SETUP VERTEX DATA AND ATTRIBUTES - */
+        }
 
 
         Self {
             surface,
             context,
             gl,
+
+            vao,
+            shader_program,
         }
     }
 
@@ -144,8 +181,16 @@ impl Renderer {
     }
 
     pub unsafe fn render(&self) {
-        self.gl.clear_color(0.0, 1.0, 1.0, 1.0);
-        self.gl.clear(COLOR_BUFFER_BIT);
+        let gl = &self.gl;
+
+        unsafe {
+            gl.clear_color(0.0, 1.0, 1.0, 1.0);
+            gl.clear(COLOR_BUFFER_BIT);
+
+            gl.use_program(Some(self.shader_program));
+            gl.bind_vertex_array(Some(self.vao));
+            gl.draw_arrays(glow::TRIANGLES, 0, 3);
+        }
 
         self.surface.swap_buffers(&self.context).unwrap();
     }
