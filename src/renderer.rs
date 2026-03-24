@@ -23,10 +23,15 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub const VERTICES: [f32; 9] = [
-        -0.5, -0.5, 0.0,
-        0.5, -0.5, 0.0,
-        0.0,  0.5, 0.0
+    pub const VERTICES: [f32; 12] = [
+        0.5,  0.5, 0.0,  // top right
+        0.5, -0.5, 0.0,  // bottom right
+        -0.5, -0.5, 0.0,  // bottom left
+        -0.5,  0.5, 0.0   // top left
+    ];
+    pub const INDICES: [u32; 6] = [
+        0, 1, 3,   // first triangle
+        1, 2, 3    // second triangle
     ];
     pub const VERTEX_SHADER: &str = "
 #version 330 core\n
@@ -112,16 +117,26 @@ void main()\n
                     abort();
                 }
             };
+            let ebo = match gl.create_buffer() {
+                Ok(buffer) => buffer,
+                Err(err) => {
+                    error!("Failed to create buffer: {:?}", err);
+                    abort();
+                }
+            };
 
             gl.bind_vertex_array(Some(vao));
 
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
             gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, cast_slice(&Self::VERTICES), glow::STATIC_DRAW);
 
-            gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, 3*4, 0);
+            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
+            gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, cast_slice(&Self::INDICES), glow::STATIC_DRAW);
+
+            gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, 3 * 4, 0);
             gl.enable_vertex_attrib_array(0);
 
-            gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
+            gl.bind_buffer(glow::ARRAY_BUFFER, None);
 
             gl.bind_vertex_array(None);
             /* - SETUP VERTEX DATA AND ATTRIBUTES - */
@@ -189,7 +204,7 @@ void main()\n
 
             gl.use_program(Some(self.shader_program));
             gl.bind_vertex_array(Some(self.vao));
-            gl.draw_arrays(glow::TRIANGLES, 0, 3);
+            gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_INT, 0);
         }
 
         self.surface.swap_buffers(&self.context).unwrap();
