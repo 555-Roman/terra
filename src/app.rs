@@ -8,30 +8,39 @@ use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowAttributes, WindowId};
 use crate::renderer::Renderer;
 
-pub struct App {
+pub struct App<'a, T> {
     pub window: Option<Window>,
     pub renderer: Option<Renderer>,
 
     pub title: String,
+
+    custom_render: unsafe fn(&mut T, &Renderer),
+    user_app: &'a mut T,
 }
 
-impl App {
-    pub fn new(title: &str) -> Self {
+impl<'a, T> App<'a, T> {
+    pub fn new(title: &str, custom_render: unsafe fn(&mut T, &Renderer), user_app: &'a mut T) -> Self {
         Self {
             window: None,
             renderer: None,
 
             title: title.to_string(),
+            custom_render,
+            user_app,
         }
     }
 
-    pub fn run_app(mut app: App) -> Result<(), EventLoopError> {
+    pub fn run_app(mut app: Self) -> Result<(), EventLoopError> {
         EventLoop::new()?.run_app(&mut app)?;
         Ok(())
     }
+
+    pub fn _renderer(&self) -> &Renderer {
+        self.renderer.as_ref().unwrap()
+    }
 }
 
-impl ApplicationHandler for App {
+impl<'a, T> ApplicationHandler for App<'a, T> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let template = ConfigTemplateBuilder::new().with_alpha_size(8).with_transparency(false);
 
@@ -75,9 +84,12 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 let renderer = self.renderer.as_ref().unwrap();
                 let window = self.window.as_ref().unwrap();
+                let func = self.custom_render;
+
                 unsafe {
-                    renderer.render();
+                    func(self.user_app, renderer);
                 }
+
                 window.request_redraw();
             },
             _ => (),
