@@ -21,36 +21,49 @@ pub struct Renderer {
     pub gl: Rc<Context>,
 
     vertex_shader: NativeShader,
+    vao: NativeVertexArray,
+    vbo: NativeBuffer,
+    ebo: NativeBuffer,
 }
 
 impl Drop for Renderer {
     fn drop(&mut self) {
         unsafe {
             self.gl.delete_shader(self.vertex_shader);
+            self.gl.delete_buffer(self.ebo);
+            self.gl.delete_buffer(self.vbo);
+            self.gl.delete_vertex_array(self.vao);
         }
     }
 }
 
 impl Renderer {
+    pub const VERTICES: [f32; 8] = [
+        1.0, 1.0,
+        1.0, 0.0,
+        0.0, 0.0,
+        0.0, 1.0,
+    ];
     pub const INDICES: [u32; 6] = [
         0, 1, 3,   // first triangle
         1, 2, 3    // second triangle
     ];
     pub const VERTEX_SHADER: &str = "
 #version 330 core\n
-layout (location = 0) in vec2 aPos;\n\
-layout (location = 1) in vec2 aTexCoords;\n
-out vec2 texcoords;\n
-void main()\n
-{\n
-   gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);\n\
-    texcoords = aTexCoords;\n
+layout (location = 0) in vec2 aUV;\n\
+uniform vec2 size;\n
+uniform vec2 offset;\n
+out vec2 uv;\n
+void main() {\n
+    gl_Position = vec4(aUV*size + offset, 0.0, 1.0);\n
+    uv = aUV;\n
 }";
 
     pub unsafe fn new(gl_config: &Config, window: &Window) -> Self {
         let (surface, context, gl) = Self::init_gl(gl_config, window);
 
         let vao: NativeVertexArray;
+        let vbo: NativeBuffer;
         let ebo: NativeBuffer;
         let vertex_shader: NativeShader;
 
@@ -72,7 +85,37 @@ void main()\n
             /* - SHADER COMPILATION - */
 
             /* - SETUP VERTEX DATA AND ATTRIBUTES - */
+            vao = match gl.create_vertex_array() {
+                Ok(array) => array,
+                Err(err) => {
+                    error!("Failed to create buffer: {:?}", err);
+                    abort();
+                }
+            };
+            gl.bind_vertex_array(Some(vao));
 
+            vbo = match gl.create_buffer() {
+                Ok(buffer) => buffer,
+                Err(err) => {
+                    error!("Failed to create buffer: {:?}", err);
+                    abort();
+                }
+            };
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
+            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, cast_slice(&Renderer::VERTICES), glow::STATIC_DRAW);
+
+            gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 2 * 4, 0);
+            gl.enable_vertex_attrib_array(0);
+
+            ebo = match gl.create_buffer() {
+                Ok(buffer) => buffer,
+                Err(err) => {
+                    error!("Failed to create buffer: {:?}", err);
+                    abort();
+                }
+            };
+            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
+            gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, cast_slice(&Renderer::INDICES), glow::STATIC_DRAW);
             /* - SETUP VERTEX DATA AND ATTRIBUTES - */
         }
 
@@ -81,7 +124,11 @@ void main()\n
             surface,
             context,
             gl: Rc::new(gl),
+
             vertex_shader,
+            vao,
+            vbo,
+            ebo,
         }
     }
 
@@ -127,10 +174,9 @@ void main()\n
         self.surface.resize(&self.context, width, height);
     }
 
-    pub unsafe fn new_quad(&self, x: f32, y: f32, width: f32, height: f32) -> Quad {unsafe{
-        let gl = &self.gl;
-        Quad::new(gl, x, y, width, height)
-    }}
+    pub fn new_quad(&self, x: f32, y: f32, width: f32, height: f32) -> Quad {
+        Quad::new(x, y, width, height)
+    }
 
     pub unsafe fn new_program(&self, fragment_code: &str) -> NativeProgram {unsafe{
         let gl = &self.gl;
@@ -170,4 +216,23 @@ void main()\n
     pub unsafe fn swap_buffers(&self) {
         self.surface.swap_buffers(&self.context).unwrap();
     }
+
+    pub unsafe fn use_program(&self, program: NativeProgram) {unsafe{
+        let gl = &self.gl;
+        gl.use_program(Some(program));
+    }}
+    pub unsafe fn render_program_in_use(&self, quad: &Quad, program: NativeProgram) {unsafe{
+        let gl = &self.gl;
+
+        let size_location = gl.get_uniform_location(program, "size").unwrap();
+        gl.uniform_2_f32(Some(&size_location), quad.size[0], quad.size[1]);
+        let offset_location = gl.get_uniform_location(program, "offset").unwrap();
+        gl.uniform_2_f32(Some(&offset_location), quad.offset[0], quad.offset[1]);
+
+        gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_INT, 0);
+    }}
+    pub unsafe fn render_program_new(&self, quad: &Quad, program: NativeProgram) {unsafe{
+        self.use_program(program);
+        self.render_program_in_use(quad, program);
+    }}
 }

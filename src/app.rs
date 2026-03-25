@@ -10,7 +10,7 @@ use crate::renderer::Renderer;
 
 pub trait Rendering {
     fn init(&mut self, renderer: &Renderer);
-    fn render(&mut self, renderer: &Renderer);
+    fn render(&self, renderer: &Renderer);
     fn drop(&mut self, renderer: &Renderer);
 }
 
