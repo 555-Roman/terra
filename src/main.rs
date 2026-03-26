@@ -38,7 +38,6 @@ impl Rendering for Terra {
     fn init(&mut self, renderer: &Renderer) {
         unsafe {
             self.quad0 = Some(renderer.new_quad(0.0, 0.0, 0.5, 0.5));
-            // let fragment_code: &str = "#version 330 core\nin vec2 uv;\nout vec4 color;\nvoid main() {\ncolor = vec4(1.0, 1.0, 0.0, 1.0);\n}";
             let fragment_code: &str = "#version 330 core\nin vec2 uv;\nout vec4 color;\nvoid main() {\ncolor = vec4(uv, 0.0, 1.0);\n}";
             self.quad_program0 = Some(renderer.new_program(fragment_code));
 
@@ -48,11 +47,8 @@ impl Rendering for Terra {
         }
     }
     fn render(&self, renderer: &Renderer) {
-        let gl = &renderer.gl;
-
         unsafe {
-            gl.clear_color(0.0, 1.0, 1.0, 1.0);
-            gl.clear(glow::COLOR_BUFFER_BIT);
+            renderer.clear_screen([0.0, 1.0, 1.0, 1.0]);
 
             renderer.use_program(self.quad_program0.unwrap());
             renderer.render_program_in_use(self.quad0.as_ref().unwrap(), self.quad_program0.unwrap());

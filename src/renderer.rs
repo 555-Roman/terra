@@ -217,6 +217,13 @@ void main() {\n
         self.surface.swap_buffers(&self.context).unwrap();
     }
 
+    pub unsafe fn clear_screen(&self, color: [f32; 4]) {unsafe{
+        let gl = &self.gl;
+
+        gl.clear_color(color[0], color[1], color[2], color[3]);
+        gl.clear(glow::COLOR_BUFFER_BIT);
+    }}
+
     pub unsafe fn use_program(&self, program: NativeProgram) {unsafe{
         let gl = &self.gl;
         gl.use_program(Some(program));
