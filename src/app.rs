@@ -3,8 +3,9 @@ use glutin::prelude::GlConfig;
 use glutin_winit::DisplayBuilder;
 use winit::application::ApplicationHandler;
 use winit::error::EventLoopError;
-use winit::event::WindowEvent;
+use winit::event::{ElementState, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::keyboard::Key;
 use winit::window::{Window, WindowAttributes, WindowId};
 use crate::renderer::Renderer;
 
@@ -74,14 +75,13 @@ impl<'a, T: Rendering> ApplicationHandler for App<'a, T> {
                 event_loop.exit();
             },
             WindowEvent::KeyboardInput {event, .. } => {
-                println!("Received keyboard input");
-
-                if event.state == winit::event::ElementState::Pressed {
-                    match event.logical_key.to_text() {
-                        None => {}
-                        Some(char) => println!("  Received key: {:?}", char)
+                if event.state == ElementState::Pressed && !event.repeat {
+                    match event.logical_key {
+                        Key::Named(winit::keyboard::NamedKey::Escape) => {
+                            event_loop.exit();
+                        }
+                        _ => (),
                     }
-
                 }
             },
             WindowEvent::Resized(size) if size.width != 0 && size.height != 0 => {
