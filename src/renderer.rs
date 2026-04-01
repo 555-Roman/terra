@@ -242,4 +242,11 @@ void main() {\n
         self.use_program(program);
         self.render_program_in_use(quad, program);
     }}
+
+    pub unsafe fn set_uniform(&self, program: NativeProgram, name: &str, values: &[u32]) {
+        let gl = &self.gl;
+
+        let uniform_location = gl.get_uniform_location(program, name);
+        gl.uniform_1_u32_slice(uniform_location.as_ref(), values);
+    }
 }

@@ -1,6 +1,9 @@
 mod app;
 mod renderer;
 mod quad;
+mod chunk;
+mod world;
+mod tiles;
 
 use glow::{HasContext, NativeProgram};
 use log::error;
