@@ -5,31 +5,27 @@ mod chunk;
 mod world;
 mod tiles;
 
-use glow::{HasContext, NativeProgram};
+use std::rc::Rc;
+use glow::HasContext;
 use log::error;
 use crate::app::{App, Rendering};
-use crate::quad::Quad;
+use crate::chunk::ChunkPos;
 use crate::renderer::Renderer;
+use crate::world::World;
 
 pub struct Terra {
-    quad0: Option<Quad>,
-    quad_program0: Option<NativeProgram>,
-    quad1: Option<Quad>,
-    quad_program1: Option<NativeProgram>,
+    world: Option<World>,
 }
 
 impl Terra {
     pub fn new() -> Self {
         Self {
-            quad0: None,
-            quad_program0: None,
-            quad1: None,
-            quad_program1: None,
+            world: None,
         }
     }
 
     pub unsafe fn init(&mut self) {
-        let app = App::new("ee", self);
+        let app = App::new("Terra", 800, 800, self);
 
         App::run_app(app).unwrap_or_else(|err| {
             error!("Failed to run app!: {:?}", err);
@@ -38,36 +34,28 @@ impl Terra {
 }
 
 impl Rendering for Terra {
-    fn init(&mut self, renderer: &Renderer) {
+    fn init(&mut self, renderer: Rc<Renderer>) {
         unsafe {
-            self.quad0 = Some(renderer.new_quad(0.0, 0.0, 0.5, 0.5));
-            let fragment_code: &str = "#version 330 core\nin vec2 uv;\nout vec4 color;\nvoid main() {\ncolor = vec4(uv, 0.0, 1.0);\n}";
-            self.quad_program0 = Some(renderer.new_program(fragment_code));
+            self.world = Some(World::new(Rc::clone(&renderer)));
 
-            self.quad1 = Some(renderer.new_quad(-0.1, 0.2, 1.0, 0.2));
-            let fragment_code: &str = "#version 330 core\nin vec2 uv;\nout vec4 color;\nvoid main() {\ncolor = vec4(1.0, 0.0, 1.0, 1.0);\n}";
-            self.quad_program1 = Some(renderer.new_program(fragment_code));
+            let world = self.world.as_mut().unwrap();
+
+            world.new_chunk(&ChunkPos(0, 0));
         }
     }
-    fn render(&self, renderer: &Renderer) {
+
+    fn render(&self, renderer: Rc<Renderer>) {
         unsafe {
-            renderer.clear_screen([0.0, 1.0, 1.0, 1.0]);
+            renderer.clear_screen([0.1, 0.3, 0.4, 1.0]);
 
-            renderer.use_program(self.quad_program0.unwrap());
-            renderer.render_program_in_use(self.quad0.as_ref().unwrap(), self.quad_program0.unwrap());
-
-            renderer.render_program_new(self.quad1.as_ref().unwrap(), self.quad_program1.unwrap());
+            self.world.as_ref().unwrap().render(); // bruh the problem is that render takes self instead of &self
 
             renderer.swap_buffers();
         }
     }
-    fn drop(&mut self, renderer: &Renderer) {
-        let gl = &renderer.gl;
 
-        unsafe {
-            gl.delete_program(self.quad_program0.unwrap());
-            gl.delete_program(self.quad_program1.unwrap());
-        }
+    fn drop(&mut self, renderer: Rc<Renderer>) {
+        renderer;
     }
 }
 
