@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
-use glow::{Context, HasContext, NativeProgram};
+use glow::{HasContext, NativeProgram};
 use crate::chunk::{ChunkData, ChunkPos};
 use crate::renderer::Renderer;
 
@@ -12,21 +12,19 @@ pub struct World {
 }
 
 impl World {
-    // what type is layer0 and layer1???? [TileWithData; CHUNK_SIZE * CHUNK_SIZE] in the shader idfk i not good with shaderfs
-    const CHUNK_FRAGMENT: &str = "
-#version 330 core\n
-uniform sampler2D atlas;\n
-uniform  layer0;\n
-uniform  layer1;\n
-in vec2 uv;\n
-out vec4 color;\n
-void main() {\n
-    color = vec4(1.0, 0.0, 0.0, 1.0);\n
+    const CHUNK_FRAGMENT: &str =
+"#version 460 core
+uniform sampler2D atlas;
+uniform vec2 layer0[256];
+uniform vec2 layer1[256];
+in vec2 uv;
+out vec4 color;
+void main() {
+    color = vec4(fract(uv * 16), 0.0, 1.0);
 }";
 
-    pub unsafe fn new(renderer: Rc<Renderer> /* ??? that works ig*/) -> Self {
+    pub unsafe fn new(renderer: Rc<Renderer>) -> Self {
         let chunk_program = renderer.new_program(Self::CHUNK_FRAGMENT);
-        
 
         Self {
             loaded_chunks: HashMap::new(),
@@ -35,8 +33,16 @@ void main() {\n
         }
     }
 
-    pub unsafe fn render(self) {
+    pub fn new_chunk(&mut self, pos: &ChunkPos) {
+        self.loaded_chunks.insert(*pos, ChunkData::new(pos.0, pos.1));
+    }
+
+    pub unsafe fn render(&self) {
         let renderer = &self.renderer;
+        renderer.use_program(self.chunk_program);
+        for (position, chunk) in self.loaded_chunks.iter() {
+            renderer.render_program_in_use(&chunk.quad, self.chunk_program);
+        }
     }
 }
 

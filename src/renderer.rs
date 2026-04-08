@@ -174,10 +174,6 @@ void main() {\n
         self.surface.resize(&self.context, width, height);
     }
 
-    pub fn new_quad(&self, x: f32, y: f32, width: f32, height: f32) -> Quad {
-        Quad::new(x, y, width, height)
-    }
-
     pub unsafe fn new_program(&self, fragment_code: &str) -> NativeProgram {unsafe{
         let gl = &self.gl;
         let fragment_shader = match gl.create_shader(glow::FRAGMENT_SHADER) {
@@ -191,6 +187,7 @@ void main() {\n
         gl.compile_shader(fragment_shader);
         if !gl.get_shader_compile_status(fragment_shader) {
             error!("Failed to compile fragment shader: {:?}", gl.get_shader_info_log(fragment_shader));
+            error!("{:?}", fragment_code);
             abort();
         }
 
